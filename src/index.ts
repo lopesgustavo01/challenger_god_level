@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname,"..", 'public')));
 
 // rotas
 app.use("/api/sales", salesRoute)
@@ -25,7 +25,7 @@ app.use("/api/analytics", analyticsRouter)
 app.use("/api", router)
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname,'..', 'public', 'index.html'));
 });
 
 // Inicia o servidor
