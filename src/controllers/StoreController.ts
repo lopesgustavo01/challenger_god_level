@@ -46,7 +46,7 @@ export const searchStores = async (req: Request, res: Response) => {
     // Usamos $1 como "placeholder" para o valor -> Prevenção de SQL Injection
     // Limitamos a 10 resultados, o que é bom para autocomplete
     const searchQuery = `
-      SELECT id, name 
+      SELECT id, name, state, city, address_street, district 
       FROM stores 
       WHERE name ILIKE $1 
       ORDER BY name ASC 

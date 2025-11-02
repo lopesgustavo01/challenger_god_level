@@ -1,5 +1,13 @@
 @import "tailwindcss";
+.loader {
+  border-top-color: var(--primary);
+  animation: spin 1s linear infinite;
+}
 
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 :root {
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.15 0 0);

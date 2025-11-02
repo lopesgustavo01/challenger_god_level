@@ -20,7 +20,6 @@ export const getStoreAIInsights = async (req: Request, res: Response) => {
   }
 
   try {
-    // --- 1️⃣ Buscar dados do mês atual ---
     const dailyCurrent = await pool.query(`
       SELECT * FROM daily_store_analysis
       WHERE store_id = $1 AND EXTRACT(MONTH FROM analysis_date) = $2
@@ -28,7 +27,6 @@ export const getStoreAIInsights = async (req: Request, res: Response) => {
       ORDER BY analysis_date ASC;
     `, [storeId, month, year]);
 
-    // --- 2️⃣ Calcular mês anterior ---
     let prevMonth = month - 1;
     let prevYear = year;
     if (prevMonth === 0) {
@@ -36,7 +34,6 @@ export const getStoreAIInsights = async (req: Request, res: Response) => {
       prevYear -= 1;
     }
 
-    // --- 3️⃣ Buscar dados do mês anterior ---
     const dailyPrev = await pool.query(`
       SELECT * FROM daily_store_analysis
       WHERE store_id = $1 AND EXTRACT(MONTH FROM analysis_date) = $2
@@ -46,7 +43,6 @@ export const getStoreAIInsights = async (req: Request, res: Response) => {
 
     const hasPreviousData = (dailyPrev.rowCount ?? 0) > 0;
 
-    // --- 4️⃣ Buscar itens mais vendidos do mês atual ---
     const topItemsCurrent = await pool.query(`
       SELECT item_name, SUM(total_quantity_sold) AS qtd
       FROM daily_item_analysis
@@ -58,11 +54,11 @@ export const getStoreAIInsights = async (req: Request, res: Response) => {
       LIMIT 10;
     `, [storeId, month, year]);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // --- 5️⃣ Prompt dinâmico conforme dados disponíveis ---
+
     const comparisonBlock = hasPreviousData ? `
-🆚 Dados do mês anterior (${prevMonth}/${prevYear}):
+ Dados do mês anterior (${prevMonth}/${prevYear}):
 ${JSON.stringify(dailyPrev.rows)}
 
 Comparar:
@@ -71,27 +67,28 @@ Comparar:
 - Melhoras e pioras operacionais
 - Dias com maiores diferenças
 ` : `
-⚠️ Nenhum dado encontrado no mês anterior (${prevMonth}/${prevYear}). 
+ Nenhum dado encontrado no mês anterior (${prevMonth}/${prevYear}). 
 Faça apenas análise do mês atual.
 `;
 
     const prompt = `
 Você é uma IA especialista em BI e vendas.
 
-🟦 Dados do mês atual (${month}/${year}):
+ Dados do mês atual (${month}/${year}):
 ${JSON.stringify(dailyCurrent.rows)}
 
-🔝 Top 10 itens do mês atual:
+ Top 10 itens do mês atual:
 ${JSON.stringify(topItemsCurrent.rows)}
 
 ${comparisonBlock}
 
-🎯 Gere um relatório com:
+ Gere um relatório com:
 - Resumo da performance do mês
 - Pontos fortes e pontos críticos
 - Oportunidades de crescimento
 - Se houver dados anteriores: comparação clara do que melhorou ou piorou
 - Projeção para o próximo mês
+- Limite os texto em até 1000 palavras
 
 Responda em texto organizado com títulos.
     `;

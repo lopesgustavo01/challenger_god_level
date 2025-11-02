@@ -250,3 +250,20 @@ export const getTopDiscountReasonsMonth = async ({ storeId, month, year }: props
     throw error;
   }
 };
+
+export interface insightsProps {
+  existsPreviousData: boolean,
+  insights: string,
+}
+
+export const getStoreAIInsights = async ({ storeId, month, year }: propsDados): Promise<insightsProps> => {
+  try {
+    const response = await api.get<insightsProps>('/ai/insights', {
+      params: { storeId, month, year }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao buscar resposta IA:", error);
+    throw error;
+  }
+};

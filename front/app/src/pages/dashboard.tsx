@@ -1,27 +1,30 @@
 "use client"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Moon, Sun, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, Moon, Sun, ChevronLeft, ChevronRight, User } from "lucide-react"
 import { MetricsCards } from "../components/MetricsCard"
 import { DiscountAnalysis } from "../components/DiscountAnalysis"
 import { BestDaysChart } from "../components/BestDaysChat"
 import { useTheme } from "../hooks/UseTheme"
 import { useEffect, useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { type DailyAnalysis, getDailyAnalysis, getTopItemsByMonth, type TopItem } from "@/services/dashboardService"
+import { type DailyAnalysis, getDailyAnalysis, getStoreAIInsights, getTopItemsByMonth, type TopItem } from "@/services/dashboardService"
 import { DailyAnalysisTable } from "@/components/TableDay"
 import { TopProductsTable } from "@/components/TopPorducts"
 import { DailyDataSelect } from "@/components/DailyData"
 import { BestChannels } from "@/components/BestChannelsCard"
 import { BestDiscountReasons } from "@/components/DiscoutReasons"
+import type { StoreResult } from "@/services/storeSearch"
+import { AIModal } from "@/modal/iaModel"
 
 interface DashboardProps {
-  storeId: number
+  store: StoreResult
   onBack: () => void
 }
 
 export type MetricType = "totalSales" | "amountSum" | "ticket" | "people"
 
-export function Dashboard({ storeId, onBack }: DashboardProps) {
+export function Dashboard({ store, onBack }: DashboardProps) {
+  const storeId = store.id
   const [selectedDay, setSelectedDay] = useState<DailyAnalysis | null>(null)
   // modo page
   const [activeTab, setActiveTab] = useState<"overview" | "details">("overview")
@@ -38,6 +41,8 @@ export function Dashboard({ storeId, onBack }: DashboardProps) {
   const [error, setError] = useState<string | null>(null)
   const [topItems, setTopItems] = useState<TopItem[]>([])
 
+  // dropdown
+  const [userMenuOpen, setUserMenuOpen] =useState<boolean>(false)
   const months = [
     { value: "0", label: "Janeiro" },
     { value: "1", label: "Fevereiro" },
@@ -109,6 +114,37 @@ export function Dashboard({ storeId, onBack }: DashboardProps) {
     ),
   },
 ]
+  // IA 
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+
+  
+  const handleAiClick = async () => {
+  setAiModalOpen(true);
+    setAiLoading(true);
+    const cacheKey = `aiInsights-${storeId}-${selectedYear}-${selectedMonth}`;
+    const itemLocal = localStorage.getItem(cacheKey);
+
+    if (itemLocal) {
+      setAiInsights(itemLocal);
+    } else {
+      try {
+        const res = await getStoreAIInsights({
+          storeId,
+          month: parseInt(selectedMonth),
+          year: parseInt(selectedYear),
+        });
+        localStorage.setItem(cacheKey, res.insights);
+        setAiInsights(res.insights);
+      } catch (err) {
+        console.error("Erro ao buscar insights da IA:", err);
+        setAiInsights("Desculpe, não foi possível gerar a análise no momento.");
+      }
+    }
+
+    setAiLoading(false);
+  };
 
 
   if (loading) return <p>Carregando dados...</p>
@@ -124,14 +160,40 @@ export function Dashboard({ storeId, onBack }: DashboardProps) {
       <header className="border-b border-[var(--border)] bg-[var(--card)] transition-colors duration-300">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-[var(--foreground)]"
-              onClick={onBack}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setUserMenuOpen(prev => !prev)}
+                  className="flex items-center px-6 gap-1 rounded-full bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 focus:outline-none transition cursor-pointer"
+                >
+                  <User className="w-5 h-5 text-[var(--foreground)]" />
+                  <ChevronDown
+                    className={`w-4 h-4 text-[var(--foreground)] transition-transform ${
+                      userMenuOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  />
+                </Button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-[-100px] mt-2 z-50 w-48 bg-[var(--card)] border border-[var(--border)] rounded-lg shadow-lg animate-in slide-in-from-top-2">
+                    <div className="p-3 text-sm text-left">
+                      <p className="font-semibold text-[var(--foreground)]">{store.name}</p>
+                      <p className="text-[var(--muted-foreground)]">Estado: {store.state}</p>
+                      {store.address_street && (
+                        <p className="text-[var(--muted-foreground)] text-xs mt-1">{store.address_street}</p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={onBack}
+                      className="w-full text-left px-3 py-2 text-red-500 hover:bg-red-500/10 text-sm rounded-b-lg cursor-pointer"
+                    >
+                      Sair
+                    </button>
+                  </div>
+                )}
+              </div>
             <div>
               <h1 className="text-2xl font-bold text-[var(--foreground)]">Analytics Dashboard</h1>
               <p className="text-sm text-[var(--muted-foreground)]">Loja #{storeId}</p>
@@ -275,6 +337,13 @@ export function Dashboard({ storeId, onBack }: DashboardProps) {
         }
         
       </main>
+      <button
+        onClick={handleAiClick}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--primary)] text-white shadow-lg flex items-center justify-center animate-float hover:scale-110 transition-transform cursor-pointer z-50"
+      >
+        🤖
+      </button>
+      <AIModal open={aiModalOpen} loading={aiLoading} onClose={()=>setAiModalOpen(false)} insights={aiInsights}/>
     </div>
   )
 }
